@@ -9,8 +9,7 @@ local model_handler = Guns4d.player_model_handler:inherit({
         arm_left_lower = "guns4d_arm_lower_left",
 
         head = "guns4d_head",
-        aim = "guns4d_aiming_bone",
-        hipfire = "guns4d_hipfire_bone",
+        gun = "guns4d_gun_bone",
     },
     --define guns4d model generation parameters
     override_bones = { --a list of bones to be read and or generated
@@ -106,8 +105,16 @@ local length = {upper=.3, lower=.4}
 local quat = mtul.math.quat
 local function arm_rotation(a, b, right)
     --b=b-{x=0,y=0,z=-.01}
-    local dir = vector.direction(a, b)
-    local distance = Guns4d.math.clamp(vector.distance(a, b), 0, length.upper+length.lower-.001)
+    local diff = b-a
+    --diff.z = Guns4d.math.clamp(diff.z, 0, math.huge)
+    if vector.length(diff) < .01 then
+        local _, r = player:get_bone_position()
+        return r.x-90, -r.y, -r.z, 01
+    end
+    --if vector.length(diff) < 1 then diff=vector.normalize(diff)*1 end
+
+    local dir = vector.normalize(diff)
+    local distance = Guns4d.math.clamp(vector.length(diff), 0, length.upper+length.lower-.001)
     local rheight = height_of_scalene(length.upper, distance, length.lower)
     --offset rotation of the upper and lower arm sections
     local upper = math.asin(rheight/length.upper)
@@ -115,13 +122,22 @@ local function arm_rotation(a, b, right)
 
     local xr = -math.atan2(dir.y, math.sqrt(dir.x^2+dir.z^2)) --pitch to direction
     local yr = -math.atan2(dir.x, dir.z) --yaw to direction
-    local z = -math.pi/6 * ((right and 1) or 0)
-
-    local rot = (quat.from_euler_rotation({x=0,y=yr,z=0}) * quat.from_euler_rotation({x=xr,y=0,z=0}) )*quat.from_euler_rotation({x=0,y=0,z=z})
+    --local roll = -math.pi/6 * ((right and 1) or 0)
+    local roll=0
+    if not right then
+        --print("a", yr*180/math.pi, xr*180/math.pi)
+        --print("u", upper, rheight, (rheight/length.upper), distance)
+    end
+    --roll = math.asin(math.sin(xr)*math.sin(yr))
+    --need to figure out some way to stabilize the roll
+    local rot = (quat.from_euler_rotation({x=0,y=Guns4d.math.clamp(yr, -math.pi*.4, math.pi*.4), z=0}) * quat.from_euler_rotation({x=xr,y=0,z=0}) )*quat.from_euler_rotation({x=0,y=0,z=roll})
     rot = rot*quat.from_euler_rotation({x=upper,y=0,z=0})
     local x,y,z=rot:to_euler_angles_unpack()
     --so it turns out that the reason why it was so shit is because the pitch was expecting clockwise. Minetest's system of rotation is fucked up so i was outputting euler angles
     --from quats that didn't make sense in minetest's system of rotation.
+    if not right then
+        --print("q", x*180/math.pi,y*180/math.pi,z*180/math.pi)
+    end
     return x*180/math.pi,y*180/math.pi,z*180/math.pi,lower*180/math.pi
 end
 function model_handler:update_arm_bones(dt)

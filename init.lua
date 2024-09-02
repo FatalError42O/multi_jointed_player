@@ -94,10 +94,11 @@ function character:update(dt)
     local player = self.player
     local vel = player:get_velocity()
     local theta = 0
+    local gun
     local gun_properties
     if mp_g4d then
-        gun_properties = Guns4d.players[player:get_player_name()].gun
-        gun_properties = (gun_properties and gun_properties.properties) or nil
+        gun = Guns4d.players[player:get_player_name()].gun
+        gun_properties = (gun and gun.properties) or nil
     end
     --for our purposes we offset clockwise 90 deg making the head our 0 deg
     if math.sqrt(vel.x^2+vel.z^2) > 0 then
@@ -117,7 +118,7 @@ function character:update(dt)
     local offset_angle = math.pi*(20/360)*2
     buffer.hip = (math.abs(theta)>0 and -(theta-(signof(theta)*.01))) or 0 --so it has a bias when moving horizontal
 
-    if gun_properties then
+    if gun then
         local rot_limit = 65*dtr
         local gun_hip_offset = 10*dtr
         local chest_offset = 30*dtr
@@ -139,7 +140,7 @@ function character:update(dt)
     --offset_angle = clamp(theta, 0, offset_angle*signof(theta))
     buffer.chest = offset_angle
     buffer.head_y = clamp(-(buffer.hip+buffer.chest), math.pi/2, -math.pi/2)
-    buffer.head_x = player:get_look_vertical()
+    buffer.head_x = (gun and -gun.handler.look_rotation.x*math.pi/180) or player:get_look_vertical()
     --minetest.chat_send_all((head_offset-offset_angle)*(180/math.pi))
     local out = {}
     local _, head = player:get_bone_position("Head_rltv")
@@ -197,7 +198,6 @@ function character:add_first_person_arms(guns4d_handler)
     for i, bone_name in pairs({"Lower_arm.R", "Lower_arm.L", "Upper_arm.R", "Upper_arm.L"}) do
         local obj = minetest.add_entity(pos, "multi_jointed_player:first_person_arm")
         local attach_name = (guns4d_handler and guns4d_handler.override_bones[bone_name]) or bone_name
-        minetest.chat_send_all(attach_name)
         local luaent = obj:get_luaentity()
         luaent.player = player
         luaent.bone = bone_name
